@@ -1,0 +1,83 @@
+.button-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: visible; /* Allow buttons to show effects outside the container */
+    width: 240px;
+    height: 40px;
+    position: relative;
+    margin: 0 auto; /* Centering the container horizontally */
+}
+
+.half-button {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    border: 2px solid rgb(0,220,255,0.3); /* Black border around the container */
+    border-radius: 50px; /* Rounded edges for the pill shape */
+    background-color: rgba(0,220,255,0.3); /* Translucent background */
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s; /* Transitions for visual effects */
+    font-size: 14px;
+    position: relative; /* Positioned relative to allow for proper overflow */
+    width: 100%; /* Ensure full coverage within its space */
+    height: 100%; /* Ensure full height coverage */
+    border: none; /* Resets any border */
+}
+
+.left {
+    border-radius: 50px 0 0 50px; /* Rounded left side */
+    border-right: 1px solid rgb(0,220,255,0.3); /* Divider between the buttons */
+    transform-origin: right;
+}
+
+.right {
+    border-radius: 0 50px 50px 0; /* Rounded right side */
+    border-left: 1px solid rgb(0,220,255,0.3); /* Divider between the buttons */
+    transform-origin: left;
+}
+
+.half-button:hover {
+    background-color: rgba(0, 221, 255, 0.6); /* Darker shade on hover */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3); /* Shadow for a lifted effect */
+    transform: scale(1.05); /* Slight increase in size */
+    z-index: 1; /* Ensure hover effect is above any other content */
+    border: none;
+}
+
+.half-button.active {
+    background-color: rgba(0, 220, 255, 0.7); /* Full color on active state */
+    transform: scale(1.1); /* More noticeable increase in size */
+    z-index: 2; /* Ensure active state is above hover state */
+    border-color: rgba(0, 221, 255, 0.6);
+    color: rgb(255, 255, 255);
+}
+
+.popup {
+    padding: 15px;
+    border-radius: 10px;
+    border: 3px solid rgba(0, 220, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.3); /* More transparent black background */
+    color: white; /* Ensures text is visible */
+    box-shadow: 0 12px 20px rgba(117, 103, 103, 0.6);
+    position: absolute;
+    height: 200px; /* Auto height to adjust based on content */
+    width: 0%; /* Start fully collapsed */
+    left: 50%; /* Initially centered horizontally */
+    top: 120px; /* Positioned a reasonable distance below the buttons */
+    box-sizing: border-box;
+    display: none;
+    opacity: 0;
+    transition: width 0.5s ease-in-out, opacity 0.5s ease-in-out, left 0.5s ease-in-out; /* Transitions for expanding, fading, and centering */
+    overflow: hidden; /* Hide overflow content during transition */
+    z-index: 3;
+}
+
+.popup > div {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out; /* Transition for content fading */
+}

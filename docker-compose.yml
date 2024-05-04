@@ -1,0 +1,16 @@
+version: '3.9'
+services:
+    midifi:
+        image: 'midifi:latest'
+        volumes:
+            - '/mnt/c/Users/Sam/Music/midifi:/app/files'
+        tty: true
+        stdin_open: true
+        container_name: midifi
+        deploy:
+          resources:
+            reservations:
+              devices:
+                - driver: nvidia
+                  count: 1
+                  capabilities: [gpu]
