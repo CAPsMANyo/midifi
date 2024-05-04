@@ -9,6 +9,8 @@ import tensorflow as tf
 from basic_pitch.inference import predict_and_save, Model
 from basic_pitch import ICASSP_2022_MODEL_PATH
 
+
+
 def validate_youtube_url(url):
     # Create a yt-dlp YoutubeDL object with options
     ydl_opts = {
@@ -86,16 +88,17 @@ def download_audio(url):
     # Set the directory and filename using parsed artist and song
     artist_dir = os.path.join(base_dir, artist)
     song_dir = os.path.join(artist_dir, song)
+    song_path = os.path.join(song_dir, f'{song}.mp3')
     os.makedirs(song_dir, exist_ok=True)
 
     # Update yt-dlp options for actual downloading
-    ydl_opts['outtmpl'] = os.path.join(song_dir, f'{song}.mp3')
+    ydl_opts['outtmpl'] = song_path
 
     # Download the file with correct settings
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([url])
 
-    return artist, artist_dir, song, song_dir
+    return song_dir, song_path
 
 def separate_drums(song_dir, device, model):
     # Download drumsep model
@@ -147,8 +150,9 @@ def separate_drums(song_dir, device, model):
     print(separated_drum_tracks)
     return separated_drum_tracks
 
-def separate_audio(song, song_dir, device, model):
+def separate_audio(song_file, stem, device, model):
     # Perform separation
+    song_dir = os.path.dirname(song_path)
     demucs.separate.main([
         '-d', device,
         '--jobs', '4',
@@ -159,60 +163,67 @@ def separate_audio(song, song_dir, device, model):
         '--filename', '{stem}.{ext}',
         os.path.join(song_dir, f'{song}.mp3')
     ])
-
-    # List all separated files (assuming mp3 format)
-    separated_files = glob.glob(os.path.join(os.path.join(song_dir, model), '*.mp3'))
-
-    # Create a dictionary mapping stem names to their file paths
-    separated_file_paths = {os.path.basename(f).split('.')[0]: f for f in separated_files}
-
-    separated_drum_tracks = separate_drums(song_dir, device, model)
-    return separated_file_paths, separated_drum_tracks
-
-def midifi_audio(song_dir, song):
-    mp3_files = []
+    separated_mp3_files = []
     for root, dirs, files in os.walk(song_dir):
         for file in files:
-            if file != 'drums.mp3' and not file.endswith(song + ".mp3"):
-                if file.endswith(".mp3"):
-                    mp3_files.append(os.path.join(root, file))
+            if file.endswith(".mp3") and file != "drums.mp3" and os.path.join(root, file) != song_file:
+                separated_mp3_files.append(os.path.join(root, file))
+
+    print(separated_mp3_files)
+    return separated_mp3_files
+
+def midifi_audio(song_dir, separated_mp3_files):
     output_dir = os.path.join(song_dir, 'midi')
-    os.mkdir(output_dir)
-    basic_pitch_model = Model(ICASSP_2022_MODEL_PATH)
-    print(mp3_files)
-    for file in mp3_files:
+    for file in separated_mp3_files:
         subprocess.Popen("basic-pitch "+output_dir+" "+file, shell=True, stdout=subprocess.PIPE).stdout.read()
 
-def process_video(url, device, model):
-    # Placeholder for the video processing logic
-    print(f"Processing video URL: {url}")
-    artist, artist_dir, song, song_dir = download_audio(url)
-    separate_audio(song, song_dir, device, model)
-    midifi_audio(song_dir, song)
-
 def main():
-    parser = argparse.ArgumentParser(description="A utility script.")
+    parser = argparse.ArgumentParser(description="Python script with multiple arguments")
+    parser.add_argument('-t', '--threads', type=int, default=1, help='Number of threads')
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-D', '--download', action='store_true', help='Indicate download operation')
-    group.add_argument('-F', '--file', type=str, help='File to process')
-    parser.add_argument('-t', '--threads', type=int, default=1, help='Number of threads to use')
-    parser.add_argument('-u', '--url', type=str, help='URL to download from')
-    parser.add_argument('-d', '--device', type=str, default="cpu", help='URL to download from')
-    parser.add_argument('-m', '--model', type=str, default="htdemucs", help='URL to download from')
-
+    group.add_argument('-D', '--download', action='store_true', help='Download option')
+    group.add_argument('-S', '--separate', action='store_true', help='Separate option')
+    group.add_argument('-M', '--midifi', action='store_true', help='Midifi option')
+    parser.add_argument('-u', '--url', help='URL')
+    parser.add_argument('-m', '--model', default='mdx', choices=['htdemucs', 'htdemucs_ft', 'htdemucs_6s', 'hdemucs_mmi', 'mdx', 'mdx_extra', 'o', 'mdz_q'], help='Model name')
+    parser.add_argument('-d', '--device', default='cuda', choices=['cuda', 'cpu'], help='Device name')
+    parser.add_argument('-F', '--file', help='File')
+    parser.add_argument('-f', '--drum-format', choices=['raw', 'gp5', 'ggd', 'ezd'], help='Format value')
     args = parser.parse_args()
 
-    # Check if download is selected but no URL is provided
     if args.download and not args.url:
-        parser.error("The --url parameter is required when --download is specified.")
+        parser.error("-D/--download requires -u/--url")
 
-    if args.download:
-        print(f"Downloading from {args.url} with {args.threads} threads.")
-        video_urls = validate_youtube_url(args.url)
-        for url in video_urls:
-            process_video(url, args.device, args.model)
-    elif args.file:
-        print(f"Processing file {args.file} with {args.threads} threads.")
+    if args.separate and not args.download and not args.file:
+        parser.error("-S/--separate without -D/--download requires -F/--file")
+
+    if args.separate and not args.stem or not args.model or not args.device:
+        parser.error("-S/--separate requires -s/--stem, -m/--model and -d/--device")
+
+    if args.download and not args.separate and not args.midifi:
+        url_list = validate_youtube_url(args.url)
+        for url in url_list:
+            artist, song = parse_title(url)
+            song_dir, song_path = download_audio(url)
+
+    if args.download and args.separate and not args.midifi:
+        url_list = validate_youtube_url(args.url)
+        for url in url_list:
+            artist, song = parse_title(url)
+            song_dir, song_path = download_audio(url)
+            separated_files_glob = separate_audio(song_dir, song_path, args.device, args.model)
+        
+    if (args.download and args.separate and args.midifi) or args.full:
+        url_list = validate_youtube_url(args.url)
+        for url in url_list:
+            artist, song = parse_title(url)
+            song_dir, song_path = download_audio(url)
+            separated_mp3_files = separate_audio(song_dir, song_path, args.device, args.model)
+            midifi_audio(song_dir, separated_mp3_files)
+
+    if args.separate and not args.download and not args.midifi:
+        separate_audio(args.file, args.stem, args.model, args.device)
+        
 
 if __name__ == "__main__":
     main()
