@@ -1,2 +1,3 @@
-models/drumsep/*
-files/**
+models/**
+output/**
+cookies.txt 

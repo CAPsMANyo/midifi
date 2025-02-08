@@ -1,0 +1,9 @@
+basic-pitch
+ffmpeg
+demucs
+gdown
+openunmix
+torch
+torchaudio
+yt-dlp
+unidecode
